@@ -1,0 +1,39 @@
+select map(top(heap.objects('com.whispark.model.member.AmMember'), 'rsizeof(rhs) - rsizeof(lhs)', 5),"toHtml(it)+'='+rsizeof(it)")
+
+
+
+
+select map(top(heap.objects('java.lang.Thread'), 'sizeof(rhs) - sizeof(lhs)', 5),"toHtml(it)+'='+sizeof(it)") 
+
+
+
+select map(top(heap.objects('java.util.ArrayList'), 'rsizeof(rhs) - rsizeof(lhs)', 5),"toHtml(it)+'='+rsizeof(it)") 
+
+
+select map(top(heap.objects('java.util.ArrayList'), 'rhs.size - lhs.size', 5),"toHtml(it)+'='+it.size")
+
+
+select map(top(heap.objects('java.util.ArrayList'), 'rsizeof(rhs) - rsizeof(lhs)', 5),"toHtml(it)+'='+rsizeof(it)+'->'+objectid(it)") 
+
+
+select max((heap.objects('java.util.ArrayList'),rsizeof(it))
+
+select heap.roots(heap.findObject("0xd66a86e0"))
+
+
+select map(heap.roots(heap.findObject("0xd66a86e0")),"it.value.toString()")
+
+
+
+select map(heap.roots(heap.findObject("0xd66a86e0")),
+	function (it) {
+		return it.key.toString() + ' = ' + it.value.toString();
+	}
+)
+
+select filter(heap.roots(heap.findObject("0xd66a86e0")),
+	function (it) {
+		if(it.string.indexOf("com.whispark"))
+			return true;
+	}
+)
