@@ -1,3 +1,40 @@
+# 构造数据
+
+```sql
+create TABLE `user` (
+  `id` int(11) NOT NULL,
+  `last_name` varchar(45) DEFAULT NULL,
+  `first_name` varchar(45) DEFAULT NULL,
+  `sex` set('M','F')  DEFAULT NULL,
+  `age` tinyint(1) DEFAULT NULL,
+  `phone` varchar(11) DEFAULT NULL,
+  `address` varchar(45) DEFAULT NULL,
+  `password` varchar(45) DEFAULT NULL,
+  `create_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_last_first_name_age` (`last_name`,`first_name`,`age`) USING BTREE,
+  KEY `idx_phone` (`phone`) USING BTREE,
+  KEY `idx_create_time` (`create_time`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+```
+
+```sql
+drop PROCEDURE test_insert;
+DELIMITER $$
+CREATE PROCEDURE test_insert()
+ begin 
+ declare num int;  
+set num=0;
+        while num < 1 do
+            insert into user(last_name, first_name, sex, age, create_time) values("last_name"+num,"first_name"+num,FLOOR(RAND() * 6)+1,FLOOR(RAND() * 100)+1,now());
+            set num=num+1;
+        end while;
+END $$
+   
+call test_insert();
+```
+
 # 为什么查询速度会慢
 
 一个查询由多个子任务组成。每个子任务都会消耗一定时间，优化查询，实际上要优化起子任务，要么消除其中一些子任务，要么减少子任务的执行次数。
@@ -132,6 +169,17 @@ set @max = 18;
 execute select_student using @min,@max;
 drop prepare select_student;
 ```
+
+## 查询优化器
+
+```sql
+select count(*) from students;
+show status like 'last_query_cost'; -- 查询最后一次的查询成本
+```
+
+mysql会更具：每个表或者索引页面个数、索引基数、索引和数据行的常熟、索引分布情况得出查询的成本。
+
+然后把成本最低的执行sql传给执行引擎。
 
 
 
