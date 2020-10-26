@@ -1,52 +1,15 @@
-# 构造数据
-
-```sql
-create TABLE `user` (
-  `id` int(11) NOT NULL,
-  `last_name` varchar(45) DEFAULT NULL,
-  `first_name` varchar(45) DEFAULT NULL,
-  `sex` set('M','F')  DEFAULT NULL,
-  `age` tinyint(1) DEFAULT NULL,
-  `phone` varchar(11) DEFAULT NULL,
-  `address` varchar(45) DEFAULT NULL,
-  `password` varchar(45) DEFAULT NULL,
-  `create_time` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_last_first_name_age` (`last_name`,`first_name`,`age`) USING BTREE,
-  KEY `idx_phone` (`phone`) USING BTREE,
-  KEY `idx_create_time` (`create_time`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-```
-
-```sql
-drop PROCEDURE test_insert;
-DELIMITER $$
-CREATE PROCEDURE test_insert()
- begin 
- declare num int;  
-set num=0;
-        while num < 1 do
-            insert into user(last_name, first_name, sex, age, create_time) values("last_name"+num,"first_name"+num,FLOOR(RAND() * 6)+1,FLOOR(RAND() * 100)+1,now());
-            set num=num+1;
-        end while;
-END $$
-   
-call test_insert();
-```
-
-# 为什么查询速度会慢
-
-一个查询由多个子任务组成。每个子任务都会消耗一定时间，优化查询，实际上要优化起子任务，要么消除其中一些子任务，要么减少子任务的执行次数。
-
-
-
-# 慢查询基础：优化访问
+# 为什么查询速度会慢（问题)
 
 查询性能低下最基础的原因是访问的数据大多。
 
 1. 请求了不需要的数据。
 2. mysql是否在扫描额外的记录。
+
+一个查询由多个子任务组成。每个子任务都会消耗一定时间，优化查询，实际上要优化起子任务，要么`消除其中一些子任务，要么减少子任务的执行次数`。
+
+
+
+# 慢查询基础：优化访问（目标）
 
 最简单衡量查询开销的指标：
 
@@ -54,13 +17,15 @@ call test_insert();
 	* 扫描的行数
 	* 返回的行数
 
+
+
 # 查询执行的基础
 
 mysql执行一个查询的过程
 
 
 
-![img](https://img-blog.csdnimg.cn/20191204191659238.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2xpZ2h0ZXI2MTM=,size_16,color_FFFFFF,t_70)
+![img](D:\GitHub\nouk-doc\mysql\images\20191204191659238.png)
 
 ## client/server 通信方式
 
@@ -147,7 +112,7 @@ mysql> SHOW  GLOBAL STATUS  LIKE  'Qcache%';
 
 根据一些mysql规则进一步检查解析树是否合法。如检查查询的表名、列名是否正确，是否有表的权限等。
 
-![img](https://img2018.cnblogs.com/blog/1385831/201902/1385831-20190219101803343-1749289173.png)
+![img](D:\GitHub\nouk-doc\mysql\images\1385831-20190219101803343-1749289173.png)
 
 ```sql
 CREATE TABLE students (
@@ -170,6 +135,8 @@ execute select_student using @min,@max;
 drop prepare select_student;
 ```
 
+
+
 ## 查询优化器
 
 ```sql
@@ -181,9 +148,48 @@ mysql会更具：每个表或者索引页面个数、索引基数、索引和数
 
 然后把成本最低的执行sql传给执行引擎。
 
+### 执行计划
+
+```sql
+ EXPLAIN EXTENDED
+ ${my-sql}
+ SHOW WARNINGS
+```
 
 
 
+
+
+# 执行
+
+链接
+
+```sql
+mysql> SELECT tbl1. col1, tbl2. col2 
+	   FROM tbl1 LEFT OUTER JOIN tbl2 USING( col3) 
+       WHERE tbl1.col1 IN( 5, 6);
+```
+
+```sql
+
+outer_iter = iterator over tbl1 where col1 IN( 5, 6) 
+while outer_row = outer_iter.next 
+	inner_iter = iterator over tbl2 where col3 = outer_row.col3 
+	inner_row = inner_iter.next 
+	if inner_row
+    	while inner_row 
+    		output [outer_row.col1,inner_row.col2]
+    		inner_ row = inner_ iter.next
+        end 
+    else 
+    	output[outer_row.col1,NULL] 
+    end 
+    outer_row = outer_iter.next 
+end
+
+```
+
+![img](D:\GitHub\nouk-doc\mysql\images\format,png)
 
 
 
