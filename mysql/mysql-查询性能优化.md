@@ -25,7 +25,7 @@ mysql执行一个查询的过程
 
 
 
-![img](D:\GitHub\nouk-doc\mysql\images\20191204191659238.png)
+![img](images\20191204191659238.png)
 
 ## client/server 通信方式
 
@@ -112,7 +112,7 @@ mysql> SHOW  GLOBAL STATUS  LIKE  'Qcache%';
 
 根据一些mysql规则进一步检查解析树是否合法。如检查查询的表名、列名是否正确，是否有表的权限等。
 
-![img](D:\GitHub\nouk-doc\mysql\images\1385831-20190219101803343-1749289173.png)
+![img](images\1385831-20190219101803343-1749289173.png)
 
 ```sql
 CREATE TABLE students (
@@ -148,12 +148,23 @@ mysql会更具：每个表或者索引页面个数、索引基数、索引和数
 
 然后把成本最低的执行sql传给执行引擎。
 
+
+
+## 执行引擎
+
+执行引擎会通过执行计划逐条执行，执行过程中大量会用到存储引擎（存储引擎提供了一套接口`handler api`）
+
+
+
+
+
+
+
 ### 执行计划
 
 ```sql
- EXPLAIN EXTENDED
- ${my-sql}
- SHOW WARNINGS
+ EXPLAIN ${my-sql}
+ SHOW WARNINGS -- 可以查询执行sql
 ```
 
 
@@ -162,7 +173,7 @@ mysql会更具：每个表或者索引页面个数、索引基数、索引和数
 
 # 执行
 
-链接
+### 链接
 
 ```sql
 mysql> SELECT tbl1. col1, tbl2. col2 
@@ -189,7 +200,26 @@ end
 
 ```
 
-![img](D:\GitHub\nouk-doc\mysql\images\format,png)
+![img](images\format,png)
+
+### 关联排序
+
+	* ORDER BY 子句中的所有字段都来自于第一张表，mysql会在关联处理第一张表时进行文件排序。explain extra字段（Using filesort）。
+	* ORDER BY 子句中的字段非第一张表，则mysql会所有关联结束后，再进行文件排序。explain extra字段（Using temporary;Using filesort）。需要临时表排序 limit 数据非常大。5.6版本之后对该策略有做新优化。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
