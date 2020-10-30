@@ -25,7 +25,7 @@ mysql执行一个查询的过程
 
 
 
-![img](images\20191204191659238.png)
+![img](https://raw.githubusercontent.com/pujie147/nouk-doc/master/mysql/images/20191204191659238.png)
 
 ## client/server 通信方式
 
@@ -112,7 +112,7 @@ mysql> SHOW  GLOBAL STATUS  LIKE  'Qcache%';
 
 根据一些mysql规则进一步检查解析树是否合法。如检查查询的表名、列名是否正确，是否有表的权限等。
 
-![img](images\1385831-20190219101803343-1749289173.png)
+![img](https://raw.githubusercontent.com/pujie147/nouk-doc/master/mysql/images/1385831-20190219101803343-1749289173.png)
 
 ```sql
 CREATE TABLE students (
@@ -200,7 +200,7 @@ end
 
 ```
 
-![img](images\format,png)
+![img](https://raw.githubusercontent.com/pujie147/nouk-doc/master/mysql/images/format,png)
 
 ### 关联排序
 
