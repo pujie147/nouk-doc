@@ -37,7 +37,7 @@ mysql执行一个查询的过程
 
 ![img](https://raw.githubusercontent.com/pujie147/nouk-doc/master/mysql/images/20191204191659238.png)
 
-## client/server 通信方式
+## 1.client/server 通信方式
 
 * TCP/IP：
   是一套常见的通信协议，被用于连接主机和互联网，但是同样也可以通过它来用于本地连接，可以用于所有的操作系统。
@@ -53,7 +53,7 @@ mysql执行一个查询的过程
 * Named pipes：
   该协议类似共享内存，让进程通过内存区域与其他进程交换信息，不像共享内存的是，命名管道通过Local Area Network
 
-## 查询缓存
+## 2.查询缓存
 
 缓存存放在一个引用表中，通过一个哈希值（sql产生）引用，这个哈希值包括了如下因素：
 
@@ -104,7 +104,7 @@ mysql> SHOW  GLOBAL STATUS  LIKE  'Qcache%';
 
 
 
-## 解析器
+## 3.解析器
 
 1.词法分析
 
@@ -116,7 +116,7 @@ mysql> SHOW  GLOBAL STATUS  LIKE  'Qcache%';
 
 
 
-## 预处理器
+## 4.预处理器
 
 
 
@@ -147,7 +147,7 @@ drop prepare select_student;
 
 
 
-## 查询优化器
+## 5.查询优化器
 
 ```sql
 select count(*) from students;
@@ -160,50 +160,9 @@ mysql会更具：每个表或者索引页面个数、索引基数、索引和数
 
 
 
-## 执行引擎
+## 6.执行引擎
 
 执行引擎会通过执行计划逐条执行，执行过程中大量会用到存储引擎（存储引擎提供了一套接口`handler api`）
-
-
-
-## 
-
-
-
-# Mysql 查询优化器局限性
-
-
-
-## 关联子查询
-
-
-
-
-
-
-
-
-
-
-
-
-
-----
-
-
-
-### 执行计划
-
-```sql
- EXPLAIN ${my-sql}
- SHOW WARNINGS -- 可以查询执行sql
-```
-
-
-
-
-
-# 执行
 
 ### 链接
 
@@ -214,7 +173,6 @@ mysql> SELECT tbl1. col1, tbl2. col2
 ```
 
 ```sql
-
 outer_iter = iterator over tbl1 where col1 IN( 5, 6) 
 while outer_row = outer_iter.next 
 	inner_iter = iterator over tbl2 where col3 = outer_row.col3 
@@ -243,15 +201,125 @@ end
 
 
 
+# Mysql 查询优化器局限性
+
+## 1.关联子查询
+
+mysql5.6之前子查询实现的非常糟糕，最糟糕的一类查询是where条件中包括in的子查询。
+
+```sql
+explain select * from course where cid in (select course_id from score where student_id = 7 and num > 85);
+```
+
+mysql会将相关的外层表压倒子表中，会将查询改写成下面样子：
+
+```sql
+explain select * from course where exists (select course_id from score where student_id = 7 and num > 85 and course_id = cid);
+```
+
+使用不上course表的主键索引。
+
+| id   | select_type        | table  | type | possible_keys                    |
+| ---- | ------------------ | ------ | ---- | -------------------------------- |
+| 1    | PRIMARY            | course | ALL  | NULL                             |
+| 2    | DEPENDENT SUBQUERY | score  | ref  | fk_score_student,fk_score_course |
+
+> mysql5.7做了优化会把子查询的数据做个临时表（子查询物化：MATERIALIZED）
+>
+> ```sql
+> +----+--------------+-------------+------------+--------+----------------------------------+------------------+---------+-----------------------+------+----------+-------------+
+> | id | select_type  | table       | partitions | type   | possible_keys                    | key              | key_len | ref                   | rows | filtered | Extra       |
+> +----+--------------+-------------+------------+--------+----------------------------------+------------------+---------+-----------------------+------+----------+-------------+
+> |  1 | SIMPLE       | <subquery2> | NULL       | ALL    | NULL                             | NULL             | NULL    | NULL                  | NULL |   100.00 | NULL        |
+> |  1 | SIMPLE       | course      | NULL       | eq_ref | PRIMARY                          | PRIMARY          | 4       | <subquery2>.course_id |    1 |   100.00 | NULL        |
+> |  2 | MATERIALIZED | score       | NULL       | ref    | fk_score_student,fk_score_course | fk_score_student | 4       | const                 |    4 |    33.33 | Using where |
+> +----+--------------+-------------+------------+--------+----------------------------------+------------------+---------+-----------------------+------+----------+-------------+
+> ```
+
+从以上例子就可以知道了mysql的每个版本都有可能推翻以前优化的思路，所以优化好方案还是在生产相同的环境下多多调试。
 
 
 
+####  关联子查询的劣势例子
+
+下面两条sql看执行计划差别不大
+
+```sql
+explain select * from student_1 where not exists (select 1 from class where class_id = class.cid);
+```
+
+但是第二条sql 的explain中Extra里包括`not exists (可以理解为提前终端)`
+
+```sql
+explain select * from student_1 left outer join class on (class_id = class.cid) where class.cid is null;
+
+student_1_iter = iterator over student_1 
+while student_1_row = student_1_iter.next 
+	class_iter = iterator over class
+	while class_row = class_iter.next 
+    	if student_1_row.class_id = class_row.id
+    		break;
+    	end
+    end 
+    output [outer_row.col1,inner_row.col2]
+end
+```
+
+> mysql在8.0之后
+>
+> ```sql
+> mysql> show warnings;
+> +-------+------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+> | Level | Code | Message
+>                                                                                                                  |
+> +-------+------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+> | Note  | 1276 | Field or reference 'test1.student_1.class_id' of SELECT #2 was resolved in SELECT #1
+>                                                                                                                  |
+> | Note  | 1003 | /* select#1 */ select `test1`.`student_1`.`sid` AS `sid`,`test1`.`student_1`.`gender` AS `gender`,`test1`.`student_1`.`class_id` AS `class_id`,`test1`.`student_1`.`sname` AS `sname` from `test1`.`student_1` anti join (`test1`.`class`) on((`<subquery2>`.`cid` = `test1`.`student_1`.`class_id`)) where true |
+> +-------+------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+> 2 rows in set (0.00 sec)
+> ```
+>
+> 可以看到mysql直接优化成anti join了
+>
+> ```sql
+> mysql> explain analyze select * from student_1 where not exists (select 1 from class where class_id = class.cid);
+> +----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+> | EXPLAIN
+> 
+>                                                                                      |
+> +----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+> | -> Nested loop antijoin  (actual time=0.302..0.307 rows=1 loops=1)
+>     -> Table scan on student_1  (cost=1.85 rows=16) (actual time=0.036..0.060 rows=16 loops=1)
+>     -> Single-row index lookup on <subquery2> using <auto_distinct_key> (cid=student_1.class_id)  (actual time=0.003..0.003 rows=1 loops=16)
+>         -> Materialize with deduplication  (actual time=0.011..0.011 rows=1 loops=16)
+>             -> Index scan on class using PRIMARY  (cost=0.65 rows=4) (actual time=0.009..0.018 rows=4 loops=1)
+>  |
+> +----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+> 1 row in set, 1 warning (0.00 sec)
+> ```
+>
+> 可以使用8.0新工具analyze查询更具体的情况
 
 
 
+#### 关联子查询的优势例子
 
 
 
+```sql
+explain select distinct cid from class inner join student_1 on (class_id = cid);
+```
+
+在使用distinct和group by 时，通常需要产生临时中间表。
+
+
+
+```sql
+explain select cid from class where exists ( select 1 from student_1 where class_id = cid);
+```
+
+而第二条sql没有产生零食表的过程，而且只要存在就返回。
 
 
 
