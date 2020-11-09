@@ -323,7 +323,163 @@ explain select cid from class where exists ( select 1 from student_1 where class
 
 
 
+## 2.union
 
+在union时mysql 会对结果集，生产一张临时表。所以尽可能让这个临时表的数据小是一个比较好的优化方向。因为union之后的结果集一般还有可能在外层添加
+
+`group by` 、`order by` 等操作。
+
+### 例子
+
+##### 优化前
+
+```sql
+SELECT sname,class_id FROM 
+(
+	(
+		SELECT
+			sname,
+			class_id
+		FROM
+			student
+	)
+	UNION ALL
+	(
+		SELECT
+			sname,
+			class_id
+		FROM
+			student_1
+	)
+) a
+ORDER BY sname
+limit 10
+```
+
+##### 优化后
+
+```sql
+SELECT sname,class_id FROM 
+(
+	(
+		SELECT
+			sname,
+			class_id
+		FROM
+			student
+        ORDER BY sname
+        limit 10
+	)
+	UNION ALL
+	(
+		SELECT
+			sname,
+			class_id
+		FROM
+			student_1
+        ORDER BY sname
+        limit 10
+	)
+) a
+ORDER BY sname
+limit 10
+```
+
+
+
+## 3.索引合并
+
+#### intersect
+
+```sql
+
+EXPLAIN
+SELECT
+	*
+FROM
+	score
+WHERE
+	student_id = 1
+AND course_id = 1
+
+
+
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+----------------------------------------------------------------+
+| id | select_type | table | partitions | type        | possible_keys                    | key                              | key_len | ref  | rows | filtered | Extra                                                          |
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+----------------------------------------------------------------+
+|  1 | SIMPLE      | score | NULL       | index_merge | fk_score_student,fk_score_course | fk_score_student,fk_score_course | 4,4     | NULL |    1 |      100 | Using intersect(fk_score_student,fk_score_course); Using where |
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+----------------------------------------------------------------+
+```
+
+
+
+#### union
+
+```sql
+EXPLAIN
+SELECT
+	*
+FROM
+	score
+WHERE
+	student_id = 1
+OR course_id = 1
+
+
+
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+------------------------------------------------------------+
+| id | select_type | table | partitions | type        | possible_keys                    | key                              | key_len | ref  | rows | filtered | Extra                                                      |
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+------------------------------------------------------------+
+|  1 | SIMPLE      | score | NULL       | index_merge | fk_score_student,fk_score_course | fk_score_student,fk_score_course | 4,4     | NULL |   15 |      100 | Using union(fk_score_student,fk_score_course); Using where |
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+------------------------------------------------------------+
+```
+
+
+
+#### sort_union
+
+```sql
+EXPLAIN
+SELECT
+	*
+FROM
+	score
+WHERE
+	student_id < 2
+OR course_id > 7
+
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+-----------------------------------------------------------------+
+| id | select_type | table | partitions | type        | possible_keys                    | key                              | key_len | ref  | rows | filtered | Extra                                                           |
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+-----------------------------------------------------------------+
+|  1 | SIMPLE      | score | NULL       | index_merge | fk_score_student,fk_score_course | fk_score_student,fk_score_course | 4,4     | NULL |    4 |      100 | Using sort_union(fk_score_student,fk_score_course); Using where |
++----+-------------+-------+------------+-------------+----------------------------------+----------------------------------+---------+------+------+----------+-----------------------------------------------------------------+
+```
+
+
+
+## 4.等值传递（TODO）
+
+
+
+
+
+## 5.并行执行
+
+mysql 无法并行执行SQL查询。
+
+
+
+## 6. 哈希关联
+
+innodb 不支持哈希索引
+
+
+
+## 7.松散索引扫描（TODO）
+
+
+
+## 8.最大值和最小值优化
 
 
 
