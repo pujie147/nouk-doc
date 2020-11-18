@@ -607,3 +607,83 @@ limit 10
 
 
 
+
+
+# 实战
+
+
+
+```sql
+SELECT
+	a.id AS "id",
+	a.message AS "message",
+	a. STATUS AS "status",
+	a.create_date AS "createDate",
+	a.send_type AS "sendType",
+	a.real_time AS "realTime",
+	a. NO AS "no",
+	a.serial_number AS "serialNumber",
+	g.id AS "gift.id",
+	g. NO AS "gift.no",
+	g. NAME AS "gift.name",
+	g.icon_path AS "gift.iconPath",
+	g.claer_photo_path AS "gift.claerPhotoPath",
+	g.is_invalid AS "gift.isInvalid",
+	g.price AS "gift.price",
+	s.id AS "sender.id",
+	s. NO AS "sender.no",
+	s.login_name AS "sender.loginName",
+	s.sex AS "sender.sex",
+	s.birthday AS "sender.birthday",
+	s.country AS "sender.country",
+	s.province AS "sender.province",
+	s.city AS "sender.city",
+	s.eng_name AS "sender.engName",
+	s. STATUS AS "sender.status",
+	s.icon_path AS "sender.iconPath",
+	s. ONLINE AS "sender.online",
+	t.id AS "target.id",
+	t. NO AS "target.no",
+	t. ONLINE AS "target.online",
+	t.login_name AS "target.loginName",
+	t.sex AS "target.sex",
+	t.birthday AS "target.birthday",
+	t.country AS "target.country",
+	t.province AS "target.province",
+	t.city AS "target.city",
+	t.eng_name AS "target.engName",
+	t. STATUS AS "target.status",
+	t.icon_path AS "target.iconPath",
+	sp.id AS "sender.publisher.id",
+	sp. NAME AS "sender.publisher.name",
+	sp. NO AS "sender.publisher.no",
+	sp.country AS "sender.publisher.country",
+	sp.province AS "sender.publisher.province",
+	sp.city AS "sender.publisher.city",
+	sp.address AS "sender.publisher.address",
+	sp.country_code AS "sender.publisher.countryCode",
+	sp. STATUS AS "sender.publisher.status",
+	su. NO AS "sender.followUser.no",
+	su. NAME AS "sender.followUser.name"
+FROM
+	am_gift_hist a
+LEFT JOIN am_member s ON a.sender_id = s.id
+LEFT JOIN am_member t ON a.target_id = t.id
+LEFT JOIN am_publisher_info sp ON s.publisher_id = sp.id
+LEFT JOIN am_gift g ON a.gift_id = g.id
+LEFT JOIN sys_user su ON su.id = s.follow_user_id
+WHERE
+	1 = 1
+AND s.del_flag = '0'
+AND t.del_flag = '0'
+AND a.del_flag = '0'
+AND su.id = 'b845cabd1b07475e982e149a8a7c2e2e'
+AND s.sex = '2'
+AND a.create_date >= '2020-11-13 00:00:00'
+AND a.create_date <= '2020-11-13 23:59:59'
+ORDER BY
+	a.create_date DESC
+LIMIT 0,
+ 10
+```
+
