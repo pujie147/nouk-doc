@@ -199,6 +199,69 @@ end
 
 
 
+# Mysql的join算法
+
+## 1. Nested-Loop Join
+
+在Mysql中，使用Nested-Loop Join的算法思想去优化join，Nested-Loop Join翻译成中文则是“嵌套循环连接”。
+
+> 举个例子：
+> select * from t1 inner join t2 on t1.id=t2.tid
+> （1）t1称为外层表，也可称为驱动表。
+> （2）t2称为内层表，也可称为被驱动表。
+>
+> ```sql
+> //伪代码表示：
+> List<Row> result = new ArrayList<>();
+> for(Row r1 in List<Row> t1){
+> 	for(Row r2 in List<Row> t2){
+> 		if(r1.id = r2.tid){
+> 			result.add(r1.join(r2));
+> 		}
+> 	}
+> }
+> ```
+
+
+
+**在Mysql的实现中，Nested-Loop Join有3种实现的算法：**
+
+- Simple Nested-Loop Join：SNLJ，简单嵌套循环连接
+- Index Nested-Loop Join：INLJ，索引嵌套循环连接
+- Block Nested-Loop Join：BNLJ，缓存块嵌套循环连接
+
+在选择Join算法时，会有优先级，理论上会优先判断能否使用INLJ、BNLJ：
+**Index Nested-LoopJoin > Block Nested-Loop Join > Simple Nested-Loop Join**
+
+
+
+## 2. Simple Nested-Loop
+
+![img](D:\git-pjs\nouk-doc\mysql\watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3UwMTA4NDEyOTY=,size_16,color_FFFFFF,t_70)
+
+简单嵌套循环连接实际上就是简单粗暴的嵌套循环，如果table1有1万条数据，table2有1万条数据，那么数据比较的次数=1万 * 1万 =1亿次，这种查询效率会非常慢。
+
+
+
+## 3. Index Nested-LoopJoin
+
+![img](D:\git-pjs\nouk-doc\mysql\images\index_nested-loopjoin)
+
+索引嵌套循环连接是基于索引进行连接的算法，索引是基于内层表的，通过外层表匹配条件直接与内层表索引进行匹配，避免和内层表的每条记录进行比较， 从而利用索引的查询减少了对内层表的匹配次数，优势极大的提升了 join的性能：
+
+> 原来的匹配次数 = 外层表行数 * 内层表行数
+> 优化后的匹配次数= 外层表的行数 * 内层表索引的高度
+
+
+
+## 4. Block Nested-Loop Join
+
+![img](D:\git-pjs\nouk-doc\mysql\images\block_nested-loopjoin)
+
+缓存块嵌套循环连接通过一次性缓存多条数据，把参与查询的列缓存到Join Buffer 里，然后拿join buffer里的数据批量与内层表的数据进行匹配，从而减少了内层循环的次数（遍历一次内层表就可以批量匹配一次Join Buffer里面的外层表数据）
+
+
+
 
 
 # Mysql 查询优化器局限性
@@ -328,6 +391,63 @@ explain select cid from class where exists ( select 1 from student_1 where class
 在union时mysql 会对结果集，生产一张临时表。所以尽可能让这个临时表的数据小是一个比较好的优化方向。因为union之后的结果集一般还有可能在外层添加
 
 `group by` 、`order by` 等操作。
+
+> ##### 优化前
+>
+> ```sql
+> SELECT sname,class_id FROM 
+> (
+> 	(
+> 		SELECT
+> 			sname,
+> 			class_id
+> 		FROM
+> 			student
+> 	)
+> 	UNION ALL
+> 	(
+> 		SELECT
+> 			sname,
+> 			class_id
+> 		FROM
+> 			student_1
+> 	)
+> ) a
+> ORDER BY sname
+> limit 10
+> ```
+>
+> ##### 优化后
+>
+> ```sql
+> SELECT sname,class_id FROM 
+> (
+> 	(
+> 		SELECT
+> 			sname,
+> 			class_id
+> 		FROM
+> 			student
+>         ORDER BY sname
+>         limit 10
+> 	)
+> 	UNION ALL
+> 	(
+> 		SELECT
+> 			sname,
+> 			class_id
+> 		FROM
+> 			student_1
+>         ORDER BY sname
+>         limit 10
+> 	)
+> ) a
+> ORDER BY sname
+> limit 10
+> ```
+>
+
+
 
 
 
@@ -515,7 +635,7 @@ USE INDEX 、 FORCE INDEX 使用基本一致，FORCE INDEX 更加强调全表扫
 
 
 
-> 规则：
+> 判断思路：
 >
 > 1、数据量大时要保证单表能瞒住觉大部分的过滤条件。如果单表不能行也要保证驱动表的大小控制。
 >
@@ -539,77 +659,9 @@ USE INDEX 、 FORCE INDEX 使用基本一致，FORCE INDEX 更加强调全表扫
 
 
 
-# 优化例子
-
-##### 优化前
-
-```sql
-SELECT sname,class_id FROM 
-(
-	(
-		SELECT
-			sname,
-			class_id
-		FROM
-			student
-	)
-	UNION ALL
-	(
-		SELECT
-			sname,
-			class_id
-		FROM
-			student_1
-	)
-) a
-ORDER BY sname
-limit 10
-```
-
-##### 优化后
-
-```sql
-SELECT sname,class_id FROM 
-(
-	(
-		SELECT
-			sname,
-			class_id
-		FROM
-			student
-        ORDER BY sname
-        limit 10
-	)
-	UNION ALL
-	(
-		SELECT
-			sname,
-			class_id
-		FROM
-			student_1
-        ORDER BY sname
-        limit 10
-	)
-) a
-ORDER BY sname
-limit 10
-```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 实战
+# 实例分析
 
 
 
@@ -685,5 +737,41 @@ ORDER BY
 	a.create_date DESC
 LIMIT 0,
  10
+```
+
+
+
+```sql
+SELECT
+	f.no as "female.no",
+	f.eng_name as "female.engName",
+	f.icon_path as "female.iconPath",
+	f.rect_icon_path as "female.rectIconPath",	
+	a.id,
+	a.serial,		
+	a.timing_id AS "timing.id",
+	a.sender_id AS "sender.id",
+	a.male_id AS "male.id",
+	a.female_id AS "female.id",
+	a.consumption_type,
+	a.`type`,
+	a.content,
+	a.status,
+	a.create_date,
+	a.create_timestamp,
+	a.update_date,
+	a.del_flag
+FROM
+	am_chat_hist a
+	left join am_member f on f.id = a.female_id
+	left join am_member m ON m.id = a.male_id
+WHERE
+	a.sender_id = a.female_id
+	and a.`del_flag` = #{delFlag}
+	AND m.id = #{male.id}
+	AND a.`type` = #{type}
+	AND a.`status` = #{status}
+	AND a.create_date &gt;=#{createDate}
+ORDER BY a.create_timestamp DESC
 ```
 
